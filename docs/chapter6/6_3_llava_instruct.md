@@ -2,7 +2,7 @@
 
 > **适用范围**：多模态大模型（LMM）开发、数据工程、视觉指令微调（Visual Instruction Tuning）
 
-### 1. 项目背景 (Project Brief)
+#### 1. 项目背景 (Project Brief)
 
 - **任务定义：**
   构建一个高质量的视觉指令微调数据集，支持单图问答（Visual QA）、物体定位（Grounding）以及多图上下文推理（Interleaved Image-Text），用于训练像 LLaVA 或 Qwen-VL 这样的多模态模型。
@@ -19,7 +19,7 @@
   1.  **坐标系对齐（Coordinate Alignment）：** 原始检测数据的坐标通常是像素绝对值（x, y, w, h），而 LLaVA 模型要求归一化到 `[0-1000]` 区间且顺序为 `[ymin, xmin, ymax, xmax]`，一旦算错，模型将出现严重的"幻觉"。
   2.  **多图逻辑构建：** 传统的 Image-Caption 数据是一图一文，构建"多图交错"对话需要构造合理的对比性 Prompt，诱导模型理解图像间的关联。
 
-### 2. 架构设计 (Architecture Design)
+#### 2. 架构设计 (Architecture Design)
 
 - **数据流水线图：**
 ![图3：构建LLaVA多模态](../images/chapter6/图3_构建LLaVA多模态指令集数据流水线图.png)
@@ -31,9 +31,9 @@
   - **Python & OpenCV:** 核心胶水语言。OpenCV 必不可少，用于读取图像真实尺寸（H, W）以进行坐标归一化，并用于可视化的"画框验证"。
   - **JSON:** LLaVA 标准数据交换格式。
 
-### 3. Step-by-Step 实战 (Implementation)
+#### 3. Step-by-Step 实战 (Implementation)
 
-#### 阶段一：多图交错数据生成 (Interleaved Data Generation)
+##### 阶段一：多图交错数据生成 (Interleaved Data Generation)
 为了让模型学会"对比"两张图片，我们利用 API 动态输入多张图像并请求对比。
 
 **关键逻辑：** 利用 VLM API 构造多图输入的 Prompt。
@@ -58,7 +58,7 @@ def generate_comparison(img1_path, img2_path):
     # ... 发送请求并解析结果 ...
 ```
 
-#### 阶段二：核心处理——Bounding Box 对齐 (Alignment)
+##### 阶段二：核心处理——Bounding Box 对齐 (Alignment)
 这是本项目最核心的数学部分。COCO 数据集使用 `[x_topleft, y_topleft, width, height]`，而 LLaVA 需要 `[ymin, xmin, ymax, xmax]` 且数值需归一化为 0-1000 的整数。
 
 **关键函数：** 坐标归一化转换
@@ -84,7 +84,7 @@ def convert_bbox(bbox, width, height):
     ]
 ```
 
-#### 阶段三：格式化与验证 (Verification)
+##### 阶段三：格式化与验证 (Verification)
 数据生成后，绝不能直接送入训练。必须通过**可视化反向验证**。如果我们在图片上画出的框是歪的，训练出来的模型一定是废的。
 
 **验证逻辑：** 解析生成的 JSON，将 `[0-1000]` 坐标还原回像素坐标并绘图。
@@ -106,7 +106,7 @@ def draw_bbox(image, bbox, label, color):
     # ...
 ```
 
-### 4. 效果展示 (Showcase)
+#### 4. 效果展示 (Showcase)
 
 **1. 数据结构示例：**
 最终生成的 `llava_instruct.json` 呈现如下标准结构，可以直接被 Training Pipeline 读取：
@@ -136,7 +136,7 @@ def draw_bbox(image, bbox, label, color):
 ![图4：效果图生成](../images/chapter6/图4_viz_000000001490.jpg)
 
 
-### 5. 成本与优化 (Cost & Optimization)
+#### 5. 成本与优化 (Cost & Optimization)
 
 - **资源消耗：**
   - **API 成本：** `interleaved.py` 依赖外部 LLM API。生成 10,000 条多图对比数据，按照 $0_5/1M Tokens 计算，成本约为 $20-$30。

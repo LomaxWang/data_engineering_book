@@ -192,12 +192,11 @@ class ParentChildIndexer:
     def _create_child_chunks(self, parent_doc: Document) -> List[str]:
         """
         Step 2: 切片逻辑
-        这里简化为字符切分，生产环境建议使用 RecursiveCharacterTextSplitter
+        这里简化为按固定字符数切分，生产环境建议使用 RecursiveCharacterTextSplitter
         """
         text = parent_doc.page_content
         children = []
         for i in range(0, len(text), self.child_size):
-            # 允许一定的重叠 (overlap) 以保持边界语义
             end = min(i + self.child_size, len(text))
             children.append(text[i:end])
         return children
@@ -223,6 +222,7 @@ class ParentChildIndexer:
         """
         # 1. 向量检索找到 Top-K Children (模拟)
         # top_children = vector_db.search(query)
+        # 注意: 这里仅为示例, 实际应该基于向量相似度排序
         top_child = self.vector_index[0] # 假设命中了第一个
         
         # 2. 回溯 Parent

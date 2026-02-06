@@ -102,23 +102,29 @@ def get_pot_prompt(evolved_question):
 def execute_code(code, timeout=5):
     """
     执行 Python 代码并获取输出。
+    警告：此函数仅应在强隔离沙箱（最小权限容器/微虚机、无网络、受限文件系统）中调用。
+    为防止在宿主环境中意外执行任意代码，如果未显式声明当前处于沙箱环境，将直接抛出异常。
+    可通过在沙箱容器内设置环境变量 EXECUTE_CODE_SANDBOXED=1 来显式允许执行。
     """
+    # 基本防护：禁止在未声明沙箱的环境中执行任意代码
+    if os.environ.get("EXECUTE_CODE_SANDBOXED") != "1":
+        raise RuntimeError(
+            "execute_code 只能在受控沙箱环境中使用；"
+            "请在隔离容器/微虚机中设置环境变量 EXECUTE_CODE_SANDBOXED=1 后再调用。"
+        )
     try:
         # 使用 subprocess 启动独立进程
         result = subprocess.run(
             ['python3', '-c', code],
-            capture_output=True, # 捕获 stdout
+            capture_output=True,  # 捕获 stdout
             text=True,
-            timeout=timeout # 必须设置超时！
+            timeout=timeout,      # 必须设置超时！
+            check=False,
         )
-        
         if result.returncode == 0:
             return True, result.stdout.strip()
         else:
             return False, f"Error: {result.stderr.strip()}"
-            
-    except subprocess.TimeoutExpired:
-        return False, "Error: Execution Timed Out"
 ```
 
 ### 4. 效果展示 (Showcase)

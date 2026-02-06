@@ -1,4 +1,4 @@
-# 项目一：构建"Mini-C4"预训练集
+# 项目一：构建"Mini-C4”预训练集
 
 ### 1. 项目背景 (Project Brief)
 
@@ -9,7 +9,7 @@
 *   **难点分析：**
     *   **信噪比极低：** 原始网页中 90% 以上是导航栏、广告、JavaScript 代码和无意义的占位符。
     *   **计算密集：** 在大规模语料中进行两两比对去重（Deduplication）极其消耗资源。
-    *   **质量量化：** 如何让机器自动判断一句话是"人类高质量语言"还是"机器生成的垃圾"？
+    *   **质量量化：** 如何让机器自动判断一句话是"人类高质量语言”还是"机器生成的垃圾”？
 
 ### 2. 架构设计 (Architecture Design)
 
@@ -43,7 +43,6 @@ from warcio.archiveiterator import ArchiveIterator
 
 # 1. 提取逻辑 (来自 2_process_warc.py)
 def extract_text(content_stream):
-    # no_fallback=False 保证速度，include_tables=False 去除干扰
     text = trafilatura.extract(
         content_stream, 
         include_comments=False, 
@@ -55,6 +54,9 @@ def extract_text(content_stream):
 def is_high_quality(text):
     # 规则 A: 长度与平均词长过滤
     words = text.split()
+    if not words:
+        # 空文本或仅包含空白字符，视为低质量
+        return False
     mean_word_len = sum(len(w) for w in words) / len(words)
     if mean_word_len > 15: # 词太长通常是乱码或代码
         return False
@@ -62,7 +64,7 @@ def is_high_quality(text):
     # 规则 B: 符号密度 (Symbol Ratio)
     code_symbols = {'{', '}', '[', ']', '<', '>', '\\'}
     symbol_count = sum(1 for char in text if char in code_symbols)
-    if symbol_count / len(text) > 0_1: # 代码符号过多
+    if len(text) > 0 and (symbol_count / len(text) > 0.1): # 代码符号过多
         return False
         
     # 规则 C: 黑名单关键词
@@ -109,7 +111,7 @@ results = ray.get(futures)
 
 #### 阶段三：语言识别与困惑度过滤 (Quality Filtering)
 
-清洗后的数据混合了多种语言且质量参差不齐。我们先用 FastText 分流语言，再用 KenLM 计算困惑度（Perplexity）。困惑度越低，代表句子越通顺、越像"人话"。
+清洗后的数据混合了多种语言且质量参差不齐。我们先用 FastText 分流语言，再用 KenLM 计算困惑度（Perplexity）。困惑度越低，代表句子越通顺、越像"人话”。
 
 **核心代码：KenLM 评分**
 
@@ -130,6 +132,9 @@ PERPLEXITY_THRESHOLD = -6_0  # 经验阈值：低于此值通常为低质量文�
 
 def filter_by_perplexity(text):
     words = text.split()
+    if not words:
+        # 空文本视为低质量，避免除零错误
+        return False, -10.0
     # 计算归一化得分 (Log Score / Length)
     log_score = kenlm_model.score(text)
     normalized_score = log_score / len(words)
@@ -173,5 +178,8 @@ def filter_by_perplexity(text):
 *   **扩展性思考 (Scaling to TBs)：**
     如果数据量扩大到 PB 级别（如真实的 C4 数据集），当前架构需要升级：
     1.  **LSH 存储：** 不能再使用内存版 `MinHashLSH`，需改用 Redis 或 Cassandra 存储哈希桶。
-    2.  **并行策略：** 将 Ray 任务从"单机多核"扩展到"多机集群"。
+    2.  **并行策略：** 将 Ray 任务从"单机多核”扩展到"多机集群”。
     3.  **IO 优化：** 数据读取需从本地文件系统迁移至 S3，并使用 PyArrow 进行流式列存处理。
+
+
+

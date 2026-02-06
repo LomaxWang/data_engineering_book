@@ -113,7 +113,8 @@ class MultimodalIndexer:
         self.use_colpali = use_colpali
         
         if self.use_colpali:
-            # [关键决策] 使用 Merged 版本以简化推理逻辑
+             # [关键决策] 使用 Merged 版本（将视觉编码器和语言模型等组件合并为单一 checkpoint）
+             # 这样可以作为一个统一的模型来加载与部署，从而简化推理与工程集成逻辑
             from colpali_engine.models import ColPali
             from colpali_engine.utils.processing_utils import ColPaliProcessor
             
@@ -248,7 +249,7 @@ def score_binary(query_emb, binary_doc_emb):
 
 ### 13_4.2 基准测试 (Benchmarks)
 
-* **测试环境**：Dual Intel Xeon Gold 6226R, NVIDIA RTX 3090 。
+* **测试环境**： Intel Xeon Gold 6226R, NVIDIA RTX 3090 。
 * **数据集**：ViDoRe Benchmark（包含复杂财务报表）。
 
 #### 1. 准确率对比 (Recall@5)
